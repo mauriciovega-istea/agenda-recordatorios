@@ -32,4 +32,4 @@ npm test
 
 ## Video demo
 
-(Pendiente: agregar enlace de YouTube)
+(https://youtube.com/shorts/kLP27aD4wK0?si=0paN0xxCO4gQ8PN7)
