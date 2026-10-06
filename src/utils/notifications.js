@@ -1,66 +1,58 @@
-import { LogBox, Platform } from 'react-native';
+import { Platform } from 'react-native';
+import { AndroidImportance } from 'expo-notifications/build/NotificationChannelManager.types';
+import { SchedulableTriggerInputTypes } from 'expo-notifications/build/Notifications.types';
+import { cancelScheduledNotificationAsync } from 'expo-notifications/build/cancelScheduledNotificationAsync';
+import { getPermissionsAsync, requestPermissionsAsync } from 'expo-notifications/build/NotificationPermissions';
+import { scheduleNotificationAsync } from 'expo-notifications/build/scheduleNotificationAsync';
+import { setNotificationChannelAsync } from 'expo-notifications/build/setNotificationChannelAsync';
+import { setNotificationHandler } from 'expo-notifications/build/NotificationsHandler';
 
-// Oculta el aviso de push remoto de Expo Go (no usamos push, solo notificaciones locales)
-LogBox.ignoreLogs(['expo-notifications']);
+setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
-let Notifications = null;
-let loaded = false;
-let loadError = null;
-
-export const getLoadError = () => loadError;
-
-// La librería se carga recién cuando se necesita, no al arrancar la app
-function getNotifications() {
-  if (loaded) return Notifications;
-  loaded = true;
-  try {
-    Notifications = require('expo-notifications');
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowBanner: true,
-        shouldShowList: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-      }),
-    });
-  } catch (e) {
-    loadError = String((e && e.message) || e);
-    Notifications = null;
-  }
-  return Notifications;
-}
-
-export const notificationsAvailable = () => getNotifications() !== null;
+export const notificationsAvailable = () => true;
+export const getLoadError = () => null;
 
 export async function setupNotifications() {
-  const N = getNotifications();
-  if (!N) return false;
   try {
     if (Platform.OS === 'android') {
-      await N.setNotificationChannelAsync('default', {
-        name: 'Recordatorios',
-        importance: N.AndroidImportance.MAX,
-      });
+      try {
+        await setNotificationChannelAsync('default', {
+          name: 'Recordatorios',
+          importance: AndroidImportance.HIGH,
+        });
+      } catch (e) {
+        // En Expo Go puede fallar; no debe bloquear el permiso
+      }
     }
-    const { status: current } = await N.getPermissionsAsync();
-    if (current === 'granted') return true;
-    const { status } = await N.requestPermissionsAsync();
-    return status === 'granted';
+    const current = await getPermissionsAsync();
+    if (current.status === 'granted') return true;
+    const requested = await requestPermissionsAsync({
+      android: {},
+      ios: { allowAlert: true, allowBadge: true, allowSound: true },
+    });
+    return requested.status === 'granted';
   } catch (e) {
     return false;
   }
 }
 
+/** Programa una notificación para la fecha del evento. Devuelve su id o null. */
 export async function scheduleEventNotification(title, date) {
-  const N = getNotifications();
-  if (!N) return null;
+  const seconds = Math.floor((date.getTime() - Date.now()) / 1000);
+  if (seconds <= 0) return null;
   try {
-    return await N.scheduleNotificationAsync({
-      content: { title: '📅 Recordatorio', body: title, sound: true },
+    return await scheduleNotificationAsync({
+      content: { title: '📅 Recordatorio', body: title, sound: 'default' },
       trigger: {
-        type: N.SchedulableTriggerInputTypes.DATE,
-        date,
-        channelId: 'default',
+        type: SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds,
       },
     });
   } catch (e) {
@@ -68,23 +60,24 @@ export async function scheduleEventNotification(title, date) {
   }
 }
 
+/** Notificación de prueba a los X segundos. */
 export async function scheduleTestNotification(seconds = 5) {
-  const N = getNotifications();
-  if (!N) return null;
-  return N.scheduleNotificationAsync({
-    content: { title: '🔔 Notificación de prueba', body: 'Las notificaciones locales funcionan' },
+  return scheduleNotificationAsync({
+    content: {
+      title: '🔔 Notificación de prueba',
+      body: 'Las notificaciones locales funcionan',
+      sound: 'default',
+    },
     trigger: {
-      type: N.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      type: SchedulableTriggerInputTypes.TIME_INTERVAL,
       seconds,
-      channelId: 'default',
     },
   });
 }
 
 export async function cancelNotification(id) {
-  const N = getNotifications();
-  if (!N || !id) return;
+  if (!id) return;
   try {
-    await N.cancelScheduledNotificationAsync(id);
+    await cancelScheduledNotificationAsync(id);
   } catch (e) {}
 }

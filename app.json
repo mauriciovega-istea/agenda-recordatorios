@@ -8,6 +8,13 @@
     "android": {
       "package": "com.mauricio.agenda"
     },
-    "plugins": ["expo-notifications"]
+    "plugins": [
+      "expo-notifications"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "e9cac500-899b-4d20-ade6-2e86e30ae41d"
+      }
+    }
   }
 }

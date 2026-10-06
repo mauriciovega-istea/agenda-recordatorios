@@ -17,6 +17,7 @@ Escanear el QR con **Expo Go** (Android/iOS) o presionar `a` para abrir un emula
 ```bash
 npm test
 ```
+![Resultado de los tests](docs/tests.png)
 
 ## Funcionalidades implementadas
 
