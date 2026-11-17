@@ -1,11 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Alert, FlatList, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import EventItem from '../components/EventItem';
 import PrimaryButton from '../components/PrimaryButton';
-import { useAuth } from '../context/AuthContext';
-import { getEvents, saveEvents } from '../storage/storage';
+import { useAuthStore } from '../store/useAuthStore';
+import { useEventsStore } from '../store/useEventsStore';
+import { addEventToCalendar } from '../services/calendar';
 import {
   cancelNotification,
   notificationsAvailable,
@@ -16,26 +16,39 @@ import { sortEventsByDate } from '../utils/validation';
 import { colors } from '../theme';
 
 export default function HomeScreen({ navigation }) {
-  const { user, logout } = useAuth();
-  const [events, setEvents] = useState([]);
+  // Todo el estado sale de los stores globales (Zustand)
+  const currentUser = useAuthStore((state) => state.currentUser);
+  const logout = useAuthStore((state) => state.logout);
+  const allEvents = useEventsStore((state) => state.events);
+  const removeEvent = useEventsStore((state) => state.removeEvent);
+  const updateEvent = useEventsStore((state) => state.updateEvent);
   const insets = useSafeAreaInsets();
+
+  const events = useMemo(
+    () => sortEventsByDate(allEvents.filter((e) => e.owner === currentUser)),
+    [allEvents, currentUser]
+  );
 
   useEffect(() => {
     setupNotifications();
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      getEvents(user).then((list) => setEvents(sortEventsByDate(list)));
-    }, [user])
-  );
-
   const handleDelete = async (id) => {
-    const target = events.find((e) => e.id === id);
+    const target = allEvents.find((e) => e.id === id);
     await cancelNotification(target?.notificationId);
-    const updated = events.filter((e) => e.id !== id);
-    setEvents(updated);
-    await saveEvents(user, updated);
+    removeEvent(id);
+  };
+
+  const handleAddToCalendar = async (event) => {
+    try {
+      const calendarEventId = await addEventToCalendar(event);
+      if (calendarEventId) {
+        updateEvent(event.id, { calendarEventId });
+        Alert.alert('Calendario', 'El evento se agregó al calendario del dispositivo.');
+      }
+    } catch (e) {
+      Alert.alert('Calendario', 'No se pudo crear el evento en el calendario.');
+    }
   };
 
   const handleTest = async () => {
@@ -57,14 +70,16 @@ export default function HomeScreen({ navigation }) {
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom + 16 }]}>
       <View style={styles.header}>
-        <Text style={styles.welcome}>{`Hola, ${user} 👋`}</Text>
+        <Text style={styles.welcome}>{`Hola, ${currentUser} 👋`}</Text>
         <Text style={styles.logout} onPress={logout}>Salir</Text>
       </View>
 
       <FlatList
         data={events}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <EventItem event={item} onDelete={handleDelete} />}
+        renderItem={({ item }) => (
+          <EventItem event={item} onDelete={handleDelete} onAddToCalendar={handleAddToCalendar} />
+        )}
         ListEmptyComponent={<Text style={styles.empty}>No tenés eventos todavía.</Text>}
         contentContainerStyle={{ paddingBottom: 12 }}
       />

@@ -1,21 +1,21 @@
 import React, { useState } from 'react';
 import { Alert, Text, TextInput, View } from 'react-native';
 import PrimaryButton from '../components/PrimaryButton';
-import { useAuth } from '../context/AuthContext';
+import { useAuthStore } from '../store/useAuthStore';
 import { formStyles as styles } from './formStyles';
 
 export default function RegisterScreen({ navigation }) {
-  const { register } = useAuth();
+  const register = useAuthStore((state) => state.register);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
 
-  const handleRegister = async () => {
+  const handleRegister = () => {
     if (password !== confirm) {
       Alert.alert('Error', 'Las contraseñas no coinciden');
       return;
     }
-    const result = await register(username, password);
+    const result = register(username, password);
     if (!result.ok) {
       Alert.alert('Error', result.error);
       return;

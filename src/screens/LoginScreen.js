@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { Alert, Text, TextInput, View } from 'react-native';
 import PrimaryButton from '../components/PrimaryButton';
-import { useAuth } from '../context/AuthContext';
+import { useAuthStore } from '../store/useAuthStore';
 import { formStyles as styles } from './formStyles';
 
 export default function LoginScreen({ navigation }) {
-  const { login } = useAuth();
+  const login = useAuthStore((state) => state.login);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleLogin = async () => {
-    const result = await login(username, password);
+  const handleLogin = () => {
+    const result = login(username, password);
     if (!result.ok) Alert.alert('Error', result.error);
   };
 
